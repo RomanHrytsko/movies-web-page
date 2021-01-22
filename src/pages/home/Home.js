@@ -1,16 +1,31 @@
 import React, {useEffect, useState} from "react";
-import {FilmList} from "../../components";
+import {FilmList, PaginationWrapper} from "../../components";
 import {movieService, genresService} from "../../services";
 import styles from './Home.module.css'
 import {useHistory} from 'react-router-dom'
+
+const mergeMoviesWithGenres = (movies, genres) => {
+    return movies.map((movie) => {
+        const {genre_ids} = movie
+        const movieGenresList = genre_ids.map(genreId => genres.find(el => el.id === genreId))
+        return {
+            ...movie,
+            movieGenresList,
+        }
+
+    })
+}
 export const Home = () => {
     const history = useHistory()
-    const [moviesList, setMoviesList] = useState([])
+    const [genresList, setGenresList] = useState([])
     const [isLoading, setIsLoading] = useState(null)
-    const fetchMovies = async () => {
+    const [moviesData, setMoviesData] = useState(null)
+
+
+    const fetchMovies = (params) => {
         try {
-            const {results, page, total_pages, total_results} = await movieService.getMovies()
-            return results
+
+            return movieService.getMovies(params)
         } catch (e) {
             console.error(e)
         }
@@ -30,20 +45,13 @@ export const Home = () => {
         const request = [fetchMovies(), fetchGenres()]
         try {
             setIsLoading(true)
-            const [movies, genres] = await Promise.all(request)
-            const mergedWithMovies = movies.map((movie) => {
-                const {genre_ids} = movie
-                const movieGenresList = genre_ids.map(genreId => genres.find(el => el.id === genreId))
-                return {
-                    ...movie,
-                    movieGenresList,
-                }
+            const [{results, ...rest}, genres] = await Promise.all(request)
 
-            })
-            setMoviesList(mergedWithMovies)
+            setMoviesData({movies: mergeMoviesWithGenres(results, genres), ...rest})
+            setGenresList(genres)
         } catch (e) {
             console.error(e);
-        }finally {
+        } finally {
             setIsLoading(false)
         }
 
@@ -51,17 +59,34 @@ export const Home = () => {
     useEffect(() => {
         fetchMoviesData()
     }, [])
-    const renderLoadingIndicator = () => (
-        <div className={styles.loading}>Loading...</div>
-    )
-    const onFilmClick = (film) => {
-        history.push(`/movie/${film.id}`)
+    const renderLoadingIndicator = () => <div className={styles.loading}>Loading...</div>
+
+    const onFilmClick = (film) => history.push(`/movie/${film.id}`)
+
+    const handlePageChange = async (page) => {
+       const {results, ...rest} = await fetchMovies({page})
+        setMoviesData({
+            movies: mergeMoviesWithGenres(results, genresList),...rest
+        })
     }
+
+
     return (
         <div>
-            {/*{true ? renderLoadingIndicator() : <FilmList/>}*/}
-            {isLoading || isLoading === null ? renderLoadingIndicator() : (<FilmList onFilmClick={onFilmClick} items={moviesList}/>)}
+
+            {isLoading || isLoading === null ? renderLoadingIndicator() : (
+                <PaginationWrapper currentPage={moviesData.page} totalPages={moviesData.total_pages}
+                                   onPrevClick={handlePageChange} onNextClick={handlePageChange}
+                                   handleLastPage={handlePageChange}
+                                   handleFirstPage={handlePageChange}
+                >
+                    <FilmList onFilmClick={onFilmClick} items={moviesData.movies}/>
+                </PaginationWrapper>
+            )}
 
         </div>
     )
 }
+
+
+

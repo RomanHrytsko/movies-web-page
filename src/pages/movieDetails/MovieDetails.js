@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 import {movieService} from "../../services";
+import {  toast } from 'react-toastify';
 
 export const MovieDetails = () => {
     const {id} = useParams();
@@ -11,9 +12,10 @@ export const MovieDetails = () => {
             setIsLoading(true)
             const data = await movieService.getMoviesById(id)
             setFilmDetails(data)
-            console.log(data)
+            toast.success('Done')
         } catch (e) {
             console.error(e)
+            toast.error('Error')
         } finally {
             setIsLoading(false)
         }
@@ -22,7 +24,7 @@ export const MovieDetails = () => {
         getMovieDetails()
     }, [])
 
-    if(isLoading && !filmDetails || isLoading === null){
+    if(isLoading || !filmDetails || isLoading === null){
         return <div>Loading...</div>
     }
     return (
